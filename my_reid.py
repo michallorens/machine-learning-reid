@@ -12,5 +12,5 @@ class Reid(object):
 
     def __call__(self, img, n=None):
         features = Variable(self.feature_extractor(img).unsqueeze(0))
-        certainty, result = self.model(features.data).sort(descending=True)
+        certainty, result = self.model(features).data.sort(descending=True)
         return certainty[0][:n], result[0][:n]

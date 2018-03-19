@@ -13,7 +13,7 @@ from reid import datasets
 from reid import models
 from reid.dist_metric import DistanceMetric
 from reid.trainers import Trainer
-from reid.evaluators import Evaluator
+from reid.evaluators import Evaluator, extract_features, pairwise_distance, evaluate_all
 from reid.utils.data import transforms as t
 from reid.utils.data.preprocessor import Preprocessor
 from reid.utils.logging import Logger
@@ -84,7 +84,7 @@ def main(args):
                  args.combine_trainval)
 
     # Create model
-    model = InceptionNet(num_channels=6, num_features=args.features, dropout=args.dropout, num_classes=num_classes)
+    model = InceptionNet(num_channels=8, num_features=args.features, dropout=args.dropout, num_classes=num_classes)
 
     # Load from checkpoint
     start_epoch = best_top1 = 0
@@ -163,6 +163,11 @@ def main(args):
     model.module.load_state_dict(checkpoint['state_dict'])
     metric.train(model, train_loader)
     evaluator.evaluate(test_loader, dataset.query, dataset.gallery, metric)
+
+    features, _ = extract_features(evaluator.model, test_loader)
+    distmat = pairwise_distance(features, dataset.query, dataset.gallery, metric=metric)
+    evaluate_all(distmat, query=dataset.query, gallery=dataset.gallery, cmc_topk=(1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50))
+
     torch.save(model, os.path.join(args.logs_dir, 'model.pt'))
 
 if __name__ == '__main__':
@@ -203,8 +208,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--print-freq', type=int, default=1)
     # metric learning
-    parser.add_argument('--dist-metric', type=str, default='euclidean',
-                        choices=['euclidean', 'kissme'])
+    parser.add_argument('-m', '--dist-metric', type=str, default='euclidean',
+                        choices=['euclidean', 'kissme', 'itml', 'lmnn'])
     # misc
     working_dir = os.path.dirname(os.path.abspath(__file__))
     parser.add_argument('--data-dir', type=str, metavar='PATH',
